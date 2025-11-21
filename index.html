@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Shivam's Relic Run</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Montserrat:wght@400;600;800&display=swap');
+
+        :root {
+            --gold: #ffd700;
+            --gold-glow: #ffeb3b;
+            --accent: #ff6f00;
+            --glass-bg: rgba(20, 20, 25, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --glass-highlight: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050a05;
+            font-family: 'Montserrat', sans-serif;
+            touch-action: none;
+            user-select: none;
+        }
+        
+        /* Cinematic Vignette & Noise */
+        body::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, transparent 50%, #000 100%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        #game-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            z-index: 10;
+        }
+
+        /* --- HUD --- */
+        #hud-top {
+            padding: 20px 30px;
+            display: flex; justify-content: space-between; align-items: flex-start;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            transition: opacity 0.3s;
+        }
+
+        .hud-value {
+            font-family: 'Cinzel', serif; font-size: 32px; color: var(--gold);
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.6); font-weight: 900;
+        }
+        
+        .rank-badge {
+            font-size: 12px; color: #fff; background: linear-gradient(45deg, var(--accent), #d84315);
+            padding: 4px 12px; border-radius: 20px; display: inline-block; margin-top: 5px;
+            font-weight: 700; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(255, 111, 0, 0.4);
+        }
+
+        .mission-box {
+            font-size: 12px; color: #ddd; background: rgba(0,0,0,0.5); padding: 8px 12px;
+            border-radius: 8px; margin-top: 5px; border-left: 3px solid var(--gold);
+            backdrop-filter: blur(4px);
+        }
+
+        .pause-btn {
+            pointer-events: auto;
+            width: 40px; height: 40px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
+            transition: all 0.2s;
+        }
+        .pause-btn:hover { border-color: var(--gold); background: rgba(255,215,0,0.1); }
+        .pause-icon { width: 12px; height: 16px; border-left: 4px solid #fff; border-right: 4px solid #fff; }
+
+        /* --- SCREENS (Modern Glassmorphism) --- */
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 8, 10, 0.7);
+            backdrop-filter: blur(25px) saturate(120%);
+            -webkit-backdrop-filter: blur(25px) saturate(120%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            pointer-events: auto; color: #fff; z-index: 20;
+            opacity: 0; pointer-events: none; transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        .screen.active { opacity: 1; pointer-events: auto; }
+
+        /* Modern Title */
+        h1 {
+            font-family: 'Cinzel', serif; font-size: 72px; margin: 0; line-height: 1;
+            background: linear-gradient(180deg, #fff, var(--gold), var(--accent));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 40px rgba(255, 215, 0, 0.4));
+            text-transform: uppercase; letter-spacing: 4px; text-align: center;
+            animation: floatTitle 4s ease-in-out infinite;
+        }
+        @keyframes floatTitle { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+
+        .subtitle {
+            font-size: 14px; color: #ccc; letter-spacing: 4px; text-transform: uppercase;
+            margin-top: 10px; margin-bottom: 40px; opacity: 0.8;
+        }
+
+        /* Rounded Inputs */
+        input[type="text"] {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 50px;
+            color: #fff; font-family: 'Montserrat', sans-serif; font-weight: 600;
+            font-size: 20px; padding: 15px 30px; text-align: center; width: 280px;
+            outline: none; transition: all 0.3s; text-transform: uppercase; letter-spacing: 2px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        input[type="text"]:focus { border-color: var(--gold); box-shadow: 0 0 25px rgba(255,215,0,0.3); transform: scale(1.05); }
+
+        /* Modern Rounded Buttons */
+        .btn-container { display: flex; flex-direction: column; gap: 18px; align-items: center; width: 100%; }
+
+        .btn {
+            padding: 18px 0; width: 300px; border-radius: 50px;
+            font-size: 16px; font-family: 'Montserrat', sans-serif; font-weight: 800;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            color: #ddd; cursor: pointer;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3), inset 0 1px 0 var(--glass-highlight);
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-transform: uppercase; letter-spacing: 2px;
+            position: relative; overflow: hidden;
+        }
+        .btn:hover { transform: translateY(-3px) scale(1.02); color: #fff; border-color: rgba(255,255,255,0.5); }
+        .btn:active { transform: translateY(1px); }
+        
+        .btn-play {
+            background: linear-gradient(135deg, var(--gold), var(--accent));
+            border: none; color: #000; text-shadow: 0 1px 0 rgba(255,255,255,0.4);
+            box-shadow: 0 15px 35px rgba(255, 160, 0, 0.4);
+        }
+        .btn-play:hover { background: linear-gradient(135deg, #ffe57f, #ff9100); color: #000; }
+
+        .btn-shop {
+            border-color: #00e5ff; color: #00e5ff;
+        }
+        .btn-shop:hover { background: rgba(0, 229, 255, 0.15); box-shadow: 0 0 30px rgba(0, 229, 255, 0.3); }
+
+        .btn-gemini { border-color: #d500f9; color: #ea80fc; }
+        .btn-gemini:hover { background: rgba(213, 0, 249, 0.15); box-shadow: 0 0 30px rgba(213, 0, 249, 0.3); }
+
+        /* Shop Modal */
+        .modal {
+            position: absolute; width: 340px; background: rgba(15, 20, 25, 0.95);
+            border-radius: 20px; padding: 30px; text-align: center;
+            border: 1px solid var(--glass-border);
+            transform: scale(0.9); opacity: 0; pointer-events: none; transition: all 0.3s;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5); z-index: 30;
+        }
+        .modal.active { transform: scale(1); opacity: 1; pointer-events: auto; }
+        .shop-item {
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px;
+            margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05);
+        }
+        .shop-btn {
+            background: var(--gold); border: none; border-radius: 20px;
+            padding: 5px 15px; font-size: 12px; font-weight: bold; color: #000; cursor: pointer;
+        }
+        .shop-btn:disabled { background: #555; color: #888; cursor: not-allowed; }
+
+        /* Revive Screen */
+        #revive-screen { background: rgba(50, 10, 10, 0.85); }
+        .timer-circle {
+            width: 80px; height: 80px; border-radius: 50%; border: 4px solid var(--gold);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 40px; font-weight: 900; color: #fff; margin-bottom: 20px;
+            animation: pulseTimer 1s infinite;
+        }
+        @keyframes pulseTimer { 0%{transform:scale(1);} 50%{transform:scale(1.1);} 100%{transform:scale(1);} }
+
+        /* Daily Bonus Toast */
+        #daily-bonus {
+            position: absolute; top: 100px; left: 50%; transform: translateX(-50%);
+            background: linear-gradient(90deg, var(--gold), var(--accent));
+            color: #000; padding: 10px 30px; border-radius: 30px;
+            font-weight: bold; font-size: 14px; box-shadow: 0 10px 30px rgba(255,215,0,0.4);
+            opacity: 0; pointer-events: none; transition: all 0.5s; z-index: 100;
+        }
+        #daily-bonus.show { opacity: 1; top: 120px; }
+
+        /* Countdown */
+        #countdown {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 140px; font-family: 'Cinzel', serif; font-weight: 900;
+            color: #fff; text-shadow: 0 0 60px var(--gold);
+            z-index: 50; pointer-events: none; display: none;
+        }
+
+        .hidden { display: none !important; }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container"></div>
+    <div id="countdown">3</div>
+    <div id="daily-bonus">📅 Daily Streak! +50 Gems</div>
+
+    <!-- HUD -->
+    <div id="ui-layer">
+        <div id="hud-top" class="hidden">
+            <div class="hud-group" style="align-items: flex-start;">
+                <div class="hud-label" id="player-hud-name">Runner</div>
+                <div class="hud-value" id="score">0m</div>
+                <div class="rank-badge" id="rank">NOVICE</div>
+                <div id="missions-container"></div>
+            </div>
+            
+            <div style="display: flex; align-items: flex-start; gap: 25px;">
+                <div class="hud-group" style="align-items: flex-end;">
+                    <div class="hud-label">Multiplier</div>
+                    <div id="multiplier" style="font-size: 28px; font-weight: 900; color: #ff4444;">x1</div>
+                </div>
+                <div class="hud-group" style="align-items: flex-end;">
+                    <div class="hud-label">Relics</div>
+                    <div class="hud-value" style="font-size: 28px; color: #fff;">💎 <span id="coins" style="color: var(--gold);">0</span></div>
+                </div>
+                <div class="pause-btn" id="hud-pause"><div class="pause-icon"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen active">
+        <h1>Shivam's<br>Relic Run</h1>
+        <div class="subtitle">The Gupta Empire Awaits</div>
+        
+        <div style="margin-bottom: 20px; text-align: center;">
+            <input type="text" id="name-input" placeholder="ENTER NAME" maxlength="12">
+            <div style="font-size: 12px; color: var(--gold); margin-top: 8px; letter-spacing: 1px;">
+                TOTAL GEMS: <span id="total-gems">0</span>
+            </div>
+        </div>
+
+        <div class="btn-container">
+            <button class="btn btn-play" id="start-btn">Start Run (Space)</button>
+            <button class="btn btn-shop" id="shop-btn">💎 Relic Shop</button>
+            <button class="btn btn-gemini" id="lore-btn">✨ Consult Oracle</button>
+        </div>
+        
+        <div id="start-lore" style="background: rgba(0,0,0,0.5); padding: 15px; margin-top: 20px; border-radius: 10px; max-width: 400px; font-style: italic; font-size: 12px; display:none;"></div>
+        
+        <div style="position: absolute; bottom: 20px; font-size: 10px; opacity: 0.6;">Designed by Shivam Gupta</div>
+    </div>
+
+    <!-- Shop Modal -->
+    <div id="shop-modal" class="modal">
+        <h2 style="color: var(--gold); margin-top: 0;">Relic Market</h2>
+        <div class="shop-item">
+            <div style="text-align: left;">
+                <div style="color:#fff; font-weight:bold;">Magnet V</div>
+                <div style="font-size:10px; color:#aaa;">Pickup range +20%</div>
+            </div>
+            <button class="shop-btn" id="buy-magnet">100 💎</button>
+        </div>
+        <div class="shop-item">
+            <div style="text-align: left;">
+                <div style="color:#fff; font-weight:bold;">Fortune V</div>
+                <div style="font-size:10px; color:#aaa;">Gem Value x2</div>
+            </div>
+            <button class="shop-btn" id="buy-value">200 💎</button>
+        </div>
+        <button class="btn" style="width: 100%; padding: 10px; margin-top: 10px; font-size: 14px;" onclick="toggleShop(false)">Close</button>
+    </div>
+
+    <!-- Revive Screen -->
+    <div id="revive-screen" class="screen">
+        <h1>Second Chance?</h1>
+        <div class="subtitle">Continue for 50 Gems</div>
+        <div class="timer-circle" id="revive-timer">5</div>
+        <div class="btn-container">
+            <button class="btn btn-play" id="revive-btn">Resurrect (50💎)</button>
+            <button class="btn" id="skip-revive">Accept Fate</button>
+        </div>
+    </div>
+
+    <!-- Pause Screen -->
+    <div id="pause-screen" class="screen">
+        <h1>Paused</h1>
+        <div class="subtitle">Time Frozen</div>
+        <div class="btn-container">
+            <button class="btn btn-play" id="resume-btn">Resume</button>
+            <button class="btn" id="quality-btn">Quality: HIGH</button>
+            <button class="btn" id="quit-btn">Quit</button>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="game-over-screen" class="screen">
+        <h1 style="color: #ff4444;">Run Ended</h1>
+        <div class="subtitle" id="final-stats">...</div>
+        
+        <div class="btn-container">
+            <button class="btn btn-play" id="restart-btn">Run Again</button>
+            <button class="btn btn-gemini" id="epitaph-btn">✨ Read Legend</button>
+            <button class="btn" id="home-btn">Main Menu</button>
+        </div>
+        <div id="end-lore" style="background: rgba(0,0,0,0.5); padding: 15px; margin-top: 20px; border-radius: 10px; max-width: 400px; font-style: italic; font-size: 12px; display:none;"></div>
+    </div>
+
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // --- CONFIGURATION ---
+        const CFG = {
+            laneWidth: 3.0,
+            chunkSize: 30,
+            gravity: -0.025,
+            jumpForce: 0.45,
+            speedStart: 0.3,
+            speedMax: 1.3,
+            colors: {
+                fog: 0x050a05,
+                sky: 0x050a05,
+                skin: 0xdcb090,
+                shirt: 0x212121,
+                pants: 0x3e2723
+            },
+            ranks: [
+                { s: 0, t: "NOVICE" }, { s: 500, t: "SCOUT" }, { s: 1500, t: "RAIDER" },
+                { s: 3000, t: "MASTER" }, { s: 6000, t: "LEGEND" }, { s: 12000, t: "DEITY" }
+            ]
+        };
+
+        // --- STATE MANAGER ---
+        let state = {
+            screen: 'start',
+            active: false,
+            score: 0,
+            runCoins: 0,
+            totalCoins: parseInt(localStorage.getItem('shivam_gems')) || 0,
+            speed: CFG.speedStart,
+            lane: 0,
+            isJumping: false,
+            isSliding: false,
+            vy: 0,
+            slideTime: 0,
+            animTime: 0,
+            quality: 'HIGH',
+            playerName: localStorage.getItem('shivam_name') || 'Shivam',
+            combo: 0,
+            multiplier: 1,
+            comboTimer: 0,
+            magnetLevel: parseInt(localStorage.getItem('shivam_magnet')) || 0,
+            valueLevel: parseInt(localStorage.getItem('shivam_value')) || 0,
+            missions: [],
+            biome: 0 // 0: Jungle, 1: Cursed, 2: Golden
+        };
+
+        // Update UI on load
+        const nameInput = document.getElementById('name-input');
+        if(nameInput) nameInput.value = state.playerName;
+        
+        const totalGems = document.getElementById('total-gems');
+        if(totalGems) totalGems.innerText = state.totalCoins;
+        
+        checkDailyBonus();
+
+        function saveProgress() {
+            localStorage.setItem('shivam_gems', state.totalCoins);
+            localStorage.setItem('shivam_name', state.playerName);
+            localStorage.setItem('shivam_magnet', state.magnetLevel);
+            localStorage.setItem('shivam_value', state.valueLevel);
+        }
+
+        function checkDailyBonus() {
+            const lastLogin = localStorage.getItem('shivam_last_login');
+            const today = new Date().toDateString();
+            if(lastLogin !== today) {
+                state.totalCoins += 50;
+                saveProgress();
+                localStorage.setItem('shivam_last_login', today);
+                const el = document.getElementById('daily-bonus');
+                if(el) {
+                    el.classList.add('show');
+                    setTimeout(() => el.classList.remove('show'), 4000);
+                }
+                const gemsEl = document.getElementById('total-gems');
+                if(gemsEl) gemsEl.innerText = state.totalCoins;
+            }
+        }
+
+        // --- THREE JS SETUP ---
+        const container = document.getElementById('game-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(CFG.colors.fog, 0.025);
+        scene.background = new THREE.Color(CFG.colors.sky);
+
+        const camera = new THREE.PerspectiveCamera(65, window.innerWidth/window.innerHeight, 0.1, 120);
+        camera.position.set(0, 4, 7);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        container.appendChild(renderer.domElement);
+
+        // --- ASSETS ---
+        const stoneTex = (() => {
+            const c = document.createElement('canvas'); c.width=256; c.height=256;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle='#1a1a1a'; ctx.fillRect(0,0,256,256);
+            for(let i=0;i<1500;i++){ ctx.fillStyle=Math.random()>.5?'#2a2a2a':'#0f0f0f'; ctx.fillRect(Math.random()*256,Math.random()*256,2,2); }
+            ctx.strokeStyle='#000'; ctx.lineWidth=2; ctx.beginPath();
+            for(let y=0;y<256;y+=64){ ctx.moveTo(0,y); ctx.lineTo(256,y); for(let x=0;x<256;x+=64){ ctx.moveTo(x+(y%128?32:0),y); ctx.lineTo(x+(y%128?32:0),y+64); }}
+            ctx.stroke();
+            const t = new THREE.CanvasTexture(c);
+            t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(4,8);
+            return t;
+        })();
+
+        const mats = {
+            floor: new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 0.8, color: 0x999999 }),
+            wall: new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 0.9, color: 0x4a5a4a }),
+            water: new THREE.MeshStandardMaterial({ color: 0x051015, roughness: 0.05, metalness: 0.9 }),
+            skin: new THREE.MeshLambertMaterial({ color: CFG.colors.skin }),
+            shirt: new THREE.MeshLambertMaterial({ color: CFG.colors.shirt }),
+            pants: new THREE.MeshLambertMaterial({ color: CFG.colors.pants }),
+            gem: new THREE.MeshPhongMaterial({ color: 0xffd700, emissive: 0xff8800, shininess: 100 })
+        };
+
+        // Lights
+        const amb = new THREE.AmbientLight(0xffffff, 0.4); scene.add(amb);
+        const sun = new THREE.DirectionalLight(0xffaa00, 1.2);
+        sun.position.set(20, 40, 20); sun.castShadow = true;
+        sun.shadow.mapSize.set(2048,2048);
+        scene.add(sun);
+        const pLight = new THREE.PointLight(0xff9900, 0.8, 10);
+        pLight.position.set(0,3,0); scene.add(pLight);
+
+        // Player
+        const player = new THREE.Group(); scene.add(player);
+        const rig = { hip: new THREE.Group(), torso: null, armL: new THREE.Group(), armR: new THREE.Group(), legL: new THREE.Group(), legR: new THREE.Group() };
+        player.add(rig.hip); rig.hip.position.y=1;
+
+        function mkLimb(w,h,d,mat,y,p) {
+            const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+            m.position.y=y; m.castShadow=true; p.add(m); return m;
+        }
+        rig.torso = mkLimb(0.45,0.6,0.25, mats.shirt, 0.3, rig.hip);
+        const head = new THREE.Group(); head.position.y=0.7; rig.torso.add(head);
+        mkLimb(0.3,0.35,0.35, mats.skin, 0, head); 
+        
+        const hat = new THREE.Group(); hat.position.y=0.15; head.add(hat);
+        const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.02,12), mats.pants); hat.add(brim);
+        const hatTop = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.15,0.25), mats.pants); hatTop.position.y=0.1; hat.add(hatTop);
+
+        rig.torso.add(rig.armL); rig.armL.position.set(-0.3,0.5,0);
+        rig.torso.add(rig.armR); rig.armR.position.set(0.3,0.5,0);
+        mkLimb(0.12,0.5,0.12, mats.skin, -0.2, rig.armL);
+        mkLimb(0.12,0.5,0.12, mats.skin, -0.2, rig.armR);
+
+        rig.hip.add(rig.legL); rig.legL.position.set(-0.15,0,0);
+        rig.hip.add(rig.legR); rig.legR.position.set(0.15,0,0);
+        mkLimb(0.18,0.8,0.2, mats.pants, -0.4, rig.legL);
+        mkLimb(0.18,0.8,0.2, mats.pants, -0.4, rig.legR);
+
+        // World Objects
+        const chunks=[]; const obstacles=[]; const gems=[]; const particles=[];
+
+        function spawnParticle(x,y,z) {
+            for(let i=0; i<6; i++) {
+                const m = new THREE.Mesh(new THREE.BoxGeometry(0.15,0.15,0.15), new THREE.MeshBasicMaterial({color:0xffd700}));
+                m.position.set(x,y,z);
+                m.vel = new THREE.Vector3((Math.random()-0.5)*0.3, Math.random()*0.3, (Math.random()-0.5)*0.3);
+                scene.add(m);
+                particles.push({mesh:m, life:1.0});
+            }
+        }
+
+        function createChunk(z) {
+            const g = new THREE.Group();
+            const f = new THREE.Mesh(new THREE.BoxGeometry(CFG.laneWidth*3+0.5, 1, CFG.chunkSize), mats.floor);
+            f.receiveShadow=true; f.position.y=-0.5; g.add(f);
+            const w = new THREE.Mesh(new THREE.PlaneGeometry(100, CFG.chunkSize), mats.water);
+            w.rotation.x=-Math.PI/2; w.position.y=-2; g.add(w);
+
+            if(Math.random()>0.5) {
+                const wall = new THREE.Mesh(new THREE.BoxGeometry(1.5,4,1.5), mats.wall);
+                wall.position.set(Math.random()>.5?6:-6, 1.5, 0); g.add(wall);
+            }
+            g.position.z=z; scene.add(g);
+            return {mesh:g, z:z};
+        }
+
+        function spawnObs(z) {
+            const x = (Math.floor(Math.random()*3)-1) * CFG.laneWidth;
+            const type = Math.random();
+            let m, t;
+            if(type<0.35) { // Jump
+                m = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,2.5), mats.pants);
+                m.rotation.z=Math.PI/2; m.position.set(x,0.3,z); t='jump';
+            } else if(type<0.7) { // Slide
+                m = new THREE.Group();
+                const archTop = new THREE.Mesh(new THREE.BoxGeometry(3,0.5,0.5), new THREE.MeshStandardMaterial({color:0x555})); archTop.position.y=2.5;
+                const l = new THREE.Mesh(new THREE.BoxGeometry(0.5,3,0.5), new THREE.MeshStandardMaterial({color:0x555})); l.position.set(-1.2,1.5,0);
+                const r = new THREE.Mesh(new THREE.BoxGeometry(0.5,3,0.5), new THREE.MeshStandardMaterial({color:0x555})); r.position.set(1.2,1.5,0);
+                m.add(archTop,l,r); m.position.set(x,0,z); t='slide';
+            } else { // Block
+                m = new THREE.Mesh(new THREE.BoxGeometry(2.5,2.5,1), new THREE.MeshStandardMaterial({color:0x333}));
+                m.position.set(x,1.25,z); t='block';
+            }
+            m.traverse(o=>{if(o.isMesh)o.castShadow=true});
+            scene.add(m); obstacles.push({mesh:m, type:t, x, z});
+        }
+
+        function spawnGem(z) {
+            const x = (Math.floor(Math.random()*3)-1) * CFG.laneWidth;
+            const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.35,0), mats.gem);
+            m.position.set(x,1.2,z); scene.add(m); gems.push({mesh:m});
+        }
+
+        // --- GAME LOGIC ---
+        function setScreen(s) {
+            state.screen = s;
+            document.querySelectorAll('.screen').forEach(e => e.classList.remove('active'));
+            const hud = document.getElementById('hud-top');
+            if(hud) hud.classList.add('hidden');
+            
+            const sEl = document.getElementById(s+'-screen');
+            if(sEl) sEl.classList.add('active');
+            else if(s==='game') {
+                if(hud) hud.classList.remove('hidden');
+            }
+        }
+
+        function updateRank() {
+            const s = Math.floor(state.score);
+            const el = document.getElementById('rank');
+            if(!el) return;
+            for(let i=CFG.ranks.length-1; i>=0; i--) {
+                if(s >= CFG.ranks[i].s) {
+                    el.innerText = CFG.ranks[i].t;
+                    break;
+                }
+            }
+        }
+
+        function updateBiome() {
+            if(state.score > 2000 && state.biome === 0) {
+                state.biome = 1;
+                scene.fog.color.setHex(0x1a0520); scene.background.setHex(0x1a0520);
+            } else if (state.score > 5000 && state.biome === 1) {
+                state.biome = 2;
+                scene.fog.color.setHex(0x403010); scene.background.setHex(0x403010);
+            }
+        }
+
+        function generateMissions() {
+            const goals = [
+                { t: "Collect 30 Gems", type: 'gem', val: 30, current: 0 },
+                { t: "Run 500m", type: 'dist', val: 500, current: 0 },
+                { t: "Reach 5x Combo", type: 'combo', val: 5, current: 0 }
+            ];
+            state.missions = goals.sort(()=>Math.random()-.5).slice(0,3);
+            renderMissions();
+        }
+
+        function renderMissions() {
+            const mc = document.getElementById('missions-container');
+            if(!mc) return;
+            mc.innerHTML = '';
+            state.missions.forEach(m => {
+                if(!m.done) {
+                    const div = document.createElement('div');
+                    div.className = 'mission-box';
+                    div.innerText = `${m.t}`;
+                    mc.appendChild(div);
+                }
+            });
+        }
+
+        function checkMissions() {
+            state.missions.forEach(m => {
+                if(m.done) return;
+                if(m.type === 'gem' && state.runCoins >= m.val) m.done = true;
+                if(m.type === 'dist' && state.score >= m.val) m.done = true;
+                if(m.type === 'combo' && state.multiplier >= m.val) m.done = true;
+                
+                if(m.done) {
+                    state.score += 200;
+                    renderMissions();
+                }
+            });
+        }
+
+        function reset() {
+            state.score=0; state.runCoins=0; state.speed=CFG.speedStart; state.lane=0;
+            state.isJumping=false; state.isSliding=false; state.vy=0;
+            state.combo=0; state.multiplier=1; state.comboTimer=0; state.biome=0;
+            scene.fog.color.setHex(CFG.colors.fog); scene.background.setHex(CFG.colors.sky);
+            
+            player.position.set(0,0,0); player.rotation.set(0,0,0);
+            chunks.forEach(c=>scene.remove(c.mesh)); chunks.length=0;
+            obstacles.forEach(o=>scene.remove(o.mesh)); obstacles.length=0;
+            gems.forEach(g=>scene.remove(g.mesh)); gems.length=0;
+            particles.forEach(p=>scene.remove(p.mesh)); particles.length=0;
+
+            // EARLY OBSTACLES: Start spawning from chunk index 2 (approx 60m)
+            for(let i=0;i<12;i++) {
+                const z = -i * CFG.chunkSize;
+                chunks.push(createChunk(z));
+                
+                if (i > 1) {
+                    // More frequent obstacles & longer coin streaks
+                    if(Math.random() > 0.3) spawnObs(z - Math.random()*15); 
+                    if(Math.random() > 0.4) { 
+                        const streak = Math.floor(Math.random() * 20 + 15); // 15-35 coins
+                        for(let j=0; j<streak; j++) spawnGem(z - j*1.2);
+                    }
+                }
+            }
+            
+            const sc = document.getElementById('score'); if(sc) sc.innerText="0m";
+            const co = document.getElementById('coins'); if(co) co.innerText="0";
+            const mu = document.getElementById('multiplier'); if(mu) mu.innerText="x1";
+            generateMissions();
+        }
+
+        function startGame() {
+            const ni = document.getElementById('name-input');
+            const name = (ni && ni.value.trim()) || "Runner";
+            state.playerName = name;
+            
+            const hudName = document.getElementById('player-hud-name');
+            if(hudName) hudName.innerText = name;
+            
+            saveProgress();
+            reset();
+            
+            const cd = document.getElementById('countdown');
+            if(cd) cd.style.display='block';
+            setScreen('none');
+            let c = 3; 
+            if(cd) cd.innerText=c;
+            const t = setInterval(()=>{
+                c--;
+                if(c>0) { if(cd) cd.innerText=c; }
+                else if(c===0) { if(cd) cd.innerText="GO!"; }
+                else {
+                    clearInterval(t);
+                    if(cd) cd.style.display='none';
+                    state.active=true;
+                    setScreen('game');
+                }
+            }, 800);
+        }
+
+        function togglePause() {
+            if(state.screen === 'game') {
+                state.active = false;
+                setScreen('pause');
+            } else if(state.screen === 'pause') {
+                const cd = document.getElementById('countdown');
+                if(cd) cd.style.display='block';
+                setScreen('none');
+                let c = 3; 
+                if(cd) cd.innerText=c;
+                const t = setInterval(()=>{
+                    c--;
+                    if(c>0) { if(cd) cd.innerText=c; }
+                    else if(c===0) { if(cd) cd.innerText="RESUME"; }
+                    else {
+                        clearInterval(t);
+                        if(cd) cd.style.display='none';
+                        state.active=true;
+                        setScreen('game');
+                    }
+                }, 500);
+            }
+        }
+
+        function offerRevive() {
+            state.active = false;
+            setScreen('revive');
+            let t = 5;
+            const el = document.getElementById('revive-timer');
+            if(el) el.innerText = t;
+            const int = setInterval(() => {
+                if(state.screen !== 'revive') { clearInterval(int); return; }
+                t--;
+                if(el) el.innerText = t;
+                if(t <= 0) {
+                    clearInterval(int);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function useRevive() {
+            if(state.totalCoins >= 50) {
+                state.totalCoins -= 50;
+                saveProgress();
+                const gemEl = document.getElementById('total-gems');
+                if(gemEl) gemEl.innerText = state.totalCoins;
+                
+                for(let i=obstacles.length-1; i>=0; i--) {
+                    if(Math.abs(obstacles[i].z - player.position.z) < 20) {
+                        scene.remove(obstacles[i].mesh);
+                        obstacles.splice(i, 1);
+                    }
+                }
+                
+                state.active = true;
+                setScreen('game');
+            } else {
+                alert("Not enough gems!");
+            }
+        }
+
+        function endGame() {
+            state.active = false;
+            state.totalCoins += state.runCoins;
+            saveProgress();
+            const gemEl = document.getElementById('total-gems');
+            if(gemEl) gemEl.innerText = state.totalCoins;
+            setScreen('over');
+            const stats = document.getElementById('final-stats');
+            if(stats) stats.innerText = `${state.playerName} ran ${Math.floor(state.score)}m | Relics: ${state.runCoins}`;
+        }
+
+        function toggleQuality() {
+            if(state.quality === 'HIGH') {
+                state.quality = 'LOW';
+                renderer.shadowMap.enabled = false;
+                sun.castShadow = false;
+            } else {
+                state.quality = 'HIGH';
+                renderer.shadowMap.enabled = true;
+                sun.castShadow = true;
+            }
+            scene.traverse(o => {
+                if(o.isMesh) {
+                    o.castShadow = (state.quality === 'HIGH');
+                    o.receiveShadow = (state.quality === 'HIGH');
+                }
+            });
+            const btn = document.getElementById('quality-btn');
+            if(btn) btn.innerText = `Quality: ${state.quality}`;
+        }
+
+        // --- LOOP ---
+        function update() {
+            if(!state.active) return;
+
+            // Physics
+            state.speed = Math.min(CFG.speedMax, state.speed + 0.00015);
+            state.score += state.speed;
+            player.position.z -= state.speed;
+            
+            updateRank();
+            updateBiome();
+            checkMissions();
+
+            // Lane
+            const tx = state.lane * CFG.laneWidth;
+            player.position.x += (tx - player.position.x)*0.15;
+            player.rotation.z = -(tx - player.position.x)*0.1;
+
+            // Jump/Slide
+            if(state.isJumping) {
+                player.position.y += state.vy; state.vy += CFG.gravity;
+                if(player.position.y<=0) { player.position.y=0; state.isJumping=false; }
+            }
+            if(state.isSliding) {
+                state.slideTime--;
+                if(state.slideTime<=0) { state.isSliding=false; rig.hip.position.y=1; rig.torso.rotation.x=0; }
+                else { rig.hip.position.y=0.5; rig.torso.rotation.x=-Math.PI/2.5; }
+            }
+
+            // Anim - Balanced Speed
+            const runCycle = state.animTime * 0.9; // Increased from 0.6 for better visual pace
+            state.animTime += state.speed;
+            if(!state.isJumping && !state.isSliding) {
+                rig.legL.rotation.x = Math.sin(runCycle)*0.8;
+                rig.legR.rotation.x = Math.sin(runCycle+Math.PI)*0.8;
+                rig.armL.rotation.x = Math.sin(runCycle+Math.PI)*0.8;
+                rig.armR.rotation.x = Math.sin(runCycle)*0.8;
+                rig.hip.position.y = 1.0 + Math.abs(Math.sin(runCycle)) * 0.1;
+            } else if(state.isJumping) {
+                rig.legL.rotation.x=-0.5; rig.legR.rotation.x=0.2;
+                rig.armL.rotation.x=-2.5; rig.armR.rotation.x=-2.5;
+            }
+
+            // Camera - Fixed LookAt to prevent "Head Down" issue
+            const shake = state.speed > 0.8 ? (Math.random()-0.5)*0.05 : 0;
+            camera.position.set(player.position.x*0.5 + shake, 4+player.position.y*0.5, player.position.z+7);
+            camera.lookAt(player.position.x*0.3, 1.5, player.position.z - 10); // Keeps camera focused ahead
+            pLight.position.set(player.position.x, 3, player.position.z+2);
+
+            // Combo Decay
+            if(state.combo > 0) {
+                state.comboTimer--;
+                if(state.comboTimer <= 0) {
+                    state.combo=0; state.multiplier=1;
+                    const mEl=document.getElementById('multiplier');
+                    if(mEl) { mEl.innerText="x1"; mEl.classList.remove('combo-active'); }
+                }
+            }
+
+            // Generation
+            const last = chunks[chunks.length-1];
+            if(player.position.z < last.z + CFG.chunkSize + 10) {
+                const nz = last.z - CFG.chunkSize;
+                chunks.push(createChunk(nz));
+                if(Math.random()>0.3) spawnObs(nz - Math.random()*5); 
+                if(Math.random()>0.4) { 
+                    for(let i=0; i<Math.floor(Math.random()*20+15); i++) spawnGem(nz - i*1.5);
+                }
+                if(chunks.length>12) { scene.remove(chunks[0].mesh); chunks.shift(); }
+            }
+
+            // Particles
+            for(let i=particles.length-1; i>=0; i--) {
+                const p=particles[i]; p.mesh.position.add(p.mesh.vel);
+                p.mesh.material.opacity=p.life; p.life-=0.05;
+                if(p.life<=0) { scene.remove(p.mesh); particles.splice(i,1); }
+            }
+
+            // Collision
+            const pBox = new THREE.Box3().setFromObject(rig.hip); pBox.expandByScalar(-0.25);
+            for(let i=obstacles.length-1; i>=0; i--) {
+                const o=obstacles[i];
+                if(o.z > player.position.z+10) { scene.remove(o.mesh); obstacles.splice(i,1); continue; }
+                if(pBox.intersectsBox(new THREE.Box3().setFromObject(o.mesh))) {
+                    let safe=false;
+                    if(o.type==='jump' && state.isJumping && player.position.y>0.5) safe=true;
+                    if(o.type==='slide' && state.isSliding) safe=true;
+                    if(!safe) offerRevive();
+                }
+            }
+
+            // Gems
+            const magRange = 1.5 + (state.magnetLevel * 0.3); 
+            for(let i=gems.length-1; i>=0; i--) {
+                const g=gems[i]; g.mesh.rotation.y+=0.1;
+                const d = g.mesh.position.distanceTo(player.position);
+                
+                if(d < magRange + 3) g.mesh.position.lerp(player.position, 0.2);
+
+                if(d < 1.5) {
+                    state.combo++; state.comboTimer=120;
+                    if(state.combo>5) state.multiplier = Math.min(10, Math.floor(state.combo/5)+1);
+                    
+                    const val = (1 + state.valueLevel) * state.multiplier; 
+                    state.runCoins += val;
+                    state.score += 10 * state.multiplier;
+                    
+                    const mEl=document.getElementById('multiplier');
+                    if(mEl) { mEl.innerText="x"+state.multiplier; mEl.classList.add('combo-active'); }
+                    setTimeout(()=>{ if(mEl) mEl.classList.remove('combo-active') },100);
+
+                    spawnParticle(g.mesh.position.x, g.mesh.position.y, g.mesh.position.z);
+                    scene.remove(g.mesh); gems.splice(i,1);
+                    const co = document.getElementById('coins'); if(co) co.innerText = state.runCoins;
+                }
+                else if(g.mesh.position.z > player.position.z+5) { scene.remove(g.mesh); gems.splice(i,1); }
+            }
+
+            const sc = document.getElementById('score'); if(sc) sc.innerText = Math.floor(state.score) + "m";
+        }
+
+        function loop() {
+            requestAnimationFrame(loop);
+            update();
+            renderer.render(scene, camera);
+        }
+        loop();
+
+        // --- EVENTS ---
+        window.addEventListener('keydown', e => {
+            if(e.code === 'Space') {
+                if(state.screen === 'start') startGame();
+                else if(state.screen === 'game') togglePause();
+                else if(state.screen === 'pause') togglePause();
+                else if(state.screen === 'over') startGame();
+                return;
+            }
+
+            if(state.screen === 'game') {
+                if(e.key==='ArrowUp' && !state.isJumping) { state.isJumping=true; state.vy=CFG.jumpForce; state.isSliding=false; }
+                if(e.key==='ArrowDown' && !state.isJumping) { state.isSliding=true; state.slideTime=45; state.vy=-0.1; }
+                if(e.key==='ArrowLeft' && state.lane > -1) state.lane--;
+                if(e.key==='ArrowRight' && state.lane < 1) state.lane++;
+                if(e.key==='Escape') togglePause();
+            } else if (state.screen === 'pause' && e.key === 'Escape') {
+                togglePause();
+            }
+        });
+
+        // Shop & Safe Bindings
+        function toggleShop(show) {
+            const el = document.getElementById('shop-modal');
+            if(el) { if(show) el.classList.add('active'); else el.classList.remove('active'); }
+        }
+
+        // Safe Event Binding
+        function bind(id, action) {
+            const el = document.getElementById(id);
+            if(el) el.onclick = action;
+        }
+
+        bind('shop-btn', () => toggleShop(true));
+        bind('buy-magnet', () => {
+            if(state.totalCoins >= 100) {
+                state.totalCoins -= 100; state.magnetLevel++;
+                saveProgress(); 
+                const el = document.getElementById('total-gems'); if(el) el.innerText=state.totalCoins;
+            } else alert("Need 100 Gems!");
+        });
+        bind('buy-value', () => {
+            if(state.totalCoins >= 200) {
+                state.totalCoins -= 200; state.valueLevel++;
+                saveProgress();
+                const el = document.getElementById('total-gems'); if(el) el.innerText=state.totalCoins;
+            } else alert("Need 200 Gems!");
+        });
+
+        bind('start-btn', startGame);
+        bind('restart-btn', startGame);
+        bind('resume-btn', () => { setScreen('none'); state.active=true; });
+        bind('hud-pause', togglePause);
+        bind('quality-btn', toggleQuality);
+        bind('quit-btn', () => setScreen('start'));
+        bind('home-btn', () => setScreen('start'));
+        bind('revive-btn', useRevive);
+        bind('skip-revive', endGame);
+
+        const apiKey = ""; 
+        async function callGemini(prompt, elementId) {
+            const el = document.getElementById(elementId);
+            if(!el) return;
+            el.style.display='block'; el.innerText = "Consulting...";
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({contents:[{parts:[{text:prompt}]}], systemInstruction:{parts:[{text:"Short dramatic narrator."}]}})
+                });
+                const data = await res.json();
+                el.innerText = data.candidates[0].content.parts[0].text;
+            } catch(e) { el.innerText = "Silence..."; }
+        }
+        bind('lore-btn', () => callGemini("Relic lore?", 'start-lore'));
+        bind('epitaph-btn', () => callGemini(`Died at ${Math.floor(state.score)}m`, 'end-lore'));
+
+        window.onresize = () => { camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); };
+
+    </script>
+</body>
+</html>
