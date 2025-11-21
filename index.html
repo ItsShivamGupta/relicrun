@@ -36,24 +36,6 @@
             pointer-events: none;
             z-index: 1;
         }
-        
-        #fever-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle, transparent 40%, var(--fever) 90%);
-            opacity: 0; pointer-events: none; transition: opacity 0.5s; z-index: 2;
-            mix-blend-mode: overlay;
-        }
-        #fever-overlay.active { opacity: 0.6; animation: pulseFever 0.5s infinite alternate; }
-        @keyframes pulseFever { from{opacity:0.4;} to{opacity:0.7;} }
-
-        /* Danger Overlay for Beast Proximity */
-        #danger-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            box-shadow: inset 0 0 100px var(--danger);
-            opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 3;
-        }
-        #danger-overlay.active { opacity: 0.8; animation: pulseDanger 0.2s infinite; }
-        @keyframes pulseDanger { 0%{opacity:0.5;} 50%{opacity:0.8;} 100%{opacity:0.5;} }
 
         #game-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 
@@ -86,13 +68,6 @@
             font-size: 10px; color: #fff; background: linear-gradient(45deg, var(--accent), #d84315);
             padding: 4px 10px; border-radius: 20px; display: inline-block; margin-top: 5px;
             font-weight: 700; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(255, 111, 0, 0.4);
-        }
-
-        .mission-box {
-            font-size: 10px; color: #ddd; background: rgba(0,0,0,0.5); padding: 6px 10px;
-            border-radius: 8px; margin-top: 5px; border-left: 3px solid var(--gold);
-            backdrop-filter: blur(4px);
-            max-width: 150px;
         }
 
         .hud-right { display: flex; align-items: flex-start; gap: 15px; }
@@ -223,11 +198,6 @@
         }
         #game-toast.show { opacity: 1; top: 120px; }
         
-        #shield-indicator {
-            font-size: 20px; color: #00e5ff; text-shadow: 0 0 10px #00e5ff;
-            display: none; font-weight: 900;
-        }
-
         #countdown {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             font-size: 120px; font-family: 'Cinzel', serif; font-weight: 900;
@@ -248,8 +218,6 @@
 <body>
 
     <div id="game-container"></div>
-    <div id="fever-overlay"></div>
-    <div id="danger-overlay"></div>
     <div id="countdown">3</div>
     <div id="game-toast"></div>
 
@@ -261,20 +229,14 @@
                 <div class="hud-label" id="player-hud-name">Runner</div>
                 <div class="hud-value" id="score">0m</div>
                 <div class="rank-badge" id="rank">NOVICE</div>
-                <div id="missions-container"></div>
             </div>
             
             <!-- Right Side -->
             <div class="hud-right">
                 <div class="hud-group" style="align-items: flex-end;">
-                    <div class="hud-label">Combo</div>
-                    <div id="multiplier" style="font-size: 24px; font-weight: 900; color: #ff4444;">x1</div>
-                </div>
-                <div class="hud-group" style="align-items: flex-end;">
                     <div class="hud-label">Relics</div>
                     <div class="hud-value" style="font-size: 24px; color: #fff;">💎 <span id="coins" style="color: var(--gold);">0</span></div>
                 </div>
-                <div id="shield-indicator">🛡️ ACTIVE</div>
                 <div class="pause-btn" id="hud-pause"><div class="pause-icon"></div></div>
             </div>
         </div>
@@ -286,7 +248,7 @@
         <div class="subtitle">The Shadow Guardian Awaits</div>
         
         <div style="margin-bottom: 20px; text-align: center;">
-            <input type="text" id="name-input" placeholder="ENTER NAME" maxlength="12">
+            <input type="text" id="name-input" placeholder="ENTER YOUR NAME" maxlength="12">
             <div style="font-size: 12px; color: var(--gold); margin-top: 8px; letter-spacing: 1px;">
                 TOTAL GEMS: <span id="total-gems">0</span>
             </div>
@@ -362,7 +324,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
-        // --- SOUND SYSTEM (Enhanced) ---
+        // --- SOUND SYSTEM ---
         const Sound = {
             ctx: null,
             init: function() {
@@ -387,35 +349,8 @@
             },
             jump: function() { this.playTone(250, 'square', 0.15, 0.08, 400); },
             coin: function() { 
-                // Sparkly addictive coin sound
                 this.playTone(1200, 'sine', 0.1, 0.05); 
                 setTimeout(()=>this.playTone(2000, 'sine', 0.15, 0.05), 40); 
-            },
-            stumble: function() {
-                // Heavy thud
-                if(!this.ctx) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.3);
-                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
-                osc.connect(gain); gain.connect(this.ctx.destination);
-                osc.start(); osc.stop(this.ctx.currentTime + 0.3);
-            },
-            growl: function() {
-                // Scary approach sound
-                if(!this.ctx) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(80, this.ctx.currentTime);
-                osc.frequency.linearRampToValueAtTime(120, this.ctx.currentTime + 0.5);
-                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-                gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.5);
-                osc.connect(gain); gain.connect(this.ctx.destination);
-                osc.start(); osc.stop(this.ctx.currentTime + 0.5);
             },
             crash: function() { 
                 if(!this.ctx) return;
@@ -443,8 +378,8 @@
             chunkSize: 30,
             gravity: -0.025,
             jumpForce: 0.45,
-            speedStart: 0.3,
-            speedMax: 1.3,
+            speedStart: 0.35,
+            speedMax: 1.3, 
             colors: {
                 fog: 0x050a05,
                 sky: 0x050a05,
@@ -473,21 +408,12 @@
             slideTime: 0,
             animTime: 0,
             quality: 'HIGH',
-            playerName: localStorage.getItem('shivam_name') || 'Shivam',
-            combo: 0,
-            multiplier: 1,
-            comboTimer: 0,
+            playerName: localStorage.getItem('shivam_name') || '',
             magnetLevel: parseInt(localStorage.getItem('shivam_magnet')) || 0,
             valueLevel: parseInt(localStorage.getItem('shivam_value')) || 0,
-            missions: [],
             biome: 0,
-            hasShield: false,
-            shieldTimer: 0, 
-            isFever: false,
-            feverTime: 0,
             shake: 0,
-            beastGap: 0,
-            isDying: false 
+            beastGap: 3 
         };
 
         const nameInput = document.getElementById('name-input');
@@ -564,9 +490,8 @@
             shirt: new THREE.MeshLambertMaterial({ color: CFG.colors.shirt }),
             pants: new THREE.MeshLambertMaterial({ color: CFG.colors.pants }),
             gem: new THREE.MeshPhongMaterial({ color: 0xffd700, emissive: 0xff8800, shininess: 100 }),
-            beast: new THREE.MeshLambertMaterial({ color: 0x110000 }),
-            beastEye: new THREE.MeshBasicMaterial({ color: 0xff0000 }),
-            shield: new THREE.MeshPhongMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.4, shininess: 150 })
+            beast: new THREE.MeshStandardMaterial({ color: 0x150505, roughness: 0.9 }),
+            beastEye: new THREE.MeshBasicMaterial({ color: 0xff0000 })
         };
 
         // Lights
@@ -605,21 +530,41 @@
         mkLimb(0.18,0.8,0.2, mats.pants, -0.4, rig.legL);
         mkLimb(0.18,0.8,0.2, mats.pants, -0.4, rig.legR);
 
-        // Shield Effect
-        const shieldMesh = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 32), mats.shield);
-        shieldMesh.visible = false;
-        player.add(shieldMesh);
-
-        // THE BEAST (Shadow Guardian)
+        // THE BEAST (Rounder & Scarier)
         const beast = new THREE.Group(); scene.add(beast);
-        const bBody = mkLimb(1.5, 1.2, 3.0, mats.beast, 1.5, beast);
-        const bHead = mkLimb(1.0, 1.0, 1.2, mats.beast, 1.0, bBody); bHead.position.set(0, 0.5, -1.8);
-        const bEyeL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.1), mats.beastEye); bEyeL.position.set(-0.3, 0.1, -0.65); bHead.add(bEyeL);
-        const bEyeR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.1, 0.1), mats.beastEye); bEyeR.position.set(0.3, 0.1, -0.65); bHead.add(bEyeR);
-        const bLegFL = mkLimb(0.4, 1.5, 0.4, mats.beast, -0.5, beast); bLegFL.position.set(-0.6, 0, -1.0);
-        const bLegFR = mkLimb(0.4, 1.5, 0.4, mats.beast, -0.5, beast); bLegFR.position.set(0.6, 0, -1.0);
-        const bLegBL = mkLimb(0.4, 1.5, 0.4, mats.beast, -0.5, beast); bLegBL.position.set(-0.6, 0, 1.0);
-        const bLegBR = mkLimb(0.4, 1.5, 0.4, mats.beast, -0.5, beast); bLegBR.position.set(0.6, 0, 1.0);
+        
+        // Body (Sphere based)
+        const bBody = new THREE.Mesh(new THREE.SphereGeometry(1.0, 16, 16), mats.beast);
+        bBody.scale.set(1.2, 1, 2.5); bBody.position.y = 1.8; bBody.castShadow = true;
+        beast.add(bBody);
+
+        // Head (Sphere)
+        const bHead = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 16), mats.beast);
+        bHead.position.set(0, 2.2, -1.5); bHead.castShadow = true;
+        beast.add(bHead);
+
+        // Eyes (Glowing Red)
+        const eyeGeo = new THREE.SphereGeometry(0.15, 8, 8);
+        const bEyeL = new THREE.Mesh(eyeGeo, mats.beastEye); bEyeL.position.set(-0.3, 0.1, -0.6); bHead.add(bEyeL);
+        const bEyeR = new THREE.Mesh(eyeGeo, mats.beastEye); bEyeR.position.set(0.3, 0.1, -0.6); bHead.add(bEyeR);
+        
+        // Eye Glow
+        const eyeLight = new THREE.PointLight(0xff0000, 1, 3);
+        eyeLight.position.set(0, 0, -1); bHead.add(eyeLight);
+
+        // Legs (Cylinders/Capsules)
+        function mkBLeg(x, z) {
+            const g = new THREE.Group();
+            const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.2, 1.2), mats.beast);
+            upper.position.y = -0.6; upper.castShadow = true; g.add(upper);
+            g.position.set(x, 1.5, z);
+            beast.add(g);
+            return g;
+        }
+        const bLegFL = mkBLeg(-0.6, -1.0);
+        const bLegFR = mkBLeg(0.6, -1.0);
+        const bLegBL = mkBLeg(-0.6, 1.2);
+        const bLegBR = mkBLeg(0.6, 1.2);
         
         // World Objects
         const chunks=[]; const obstacles=[]; const gems=[]; const particles=[];
@@ -654,11 +599,7 @@
             const type = Math.random();
             let m, t;
             
-            if(Math.random() < 0.05) {
-                m = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), mats.shield);
-                m.position.set(x, 1.0, z); t='shield';
-            }
-            else if(type<0.35) { // Jump
+            if(type<0.35) { // Jump
                 m = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,2.5), mats.pants);
                 m.rotation.z=Math.PI/2; m.position.set(x,0.3,z); t='jump';
             } else if(type<0.7) { // Slide
@@ -717,84 +658,12 @@
             }
         }
 
-        function generateMissions() {
-            const goals = [
-                { t: "Collect 30 Gems", type: 'gem', val: 30, current: 0 },
-                { t: "Run 500m", type: 'dist', val: 500, current: 0 },
-                { t: "Reach 5x Combo", type: 'combo', val: 5, current: 0 }
-            ];
-            state.missions = goals.sort(()=>Math.random()-.5).slice(0,3);
-            renderMissions();
-        }
-
-        function renderMissions() {
-            const mc = document.getElementById('missions-container');
-            if(!mc) return;
-            mc.innerHTML = '';
-            state.missions.forEach(m => {
-                if(!m.done) {
-                    const div = document.createElement('div');
-                    div.className = 'mission-box';
-                    div.innerText = `${m.t}`;
-                    mc.appendChild(div);
-                }
-            });
-        }
-
-        function checkMissions() {
-            state.missions.forEach(m => {
-                if(m.done) return;
-                if(m.type === 'gem' && state.runCoins >= m.val) m.done = true;
-                if(m.type === 'dist' && state.score >= m.val) m.done = true;
-                if(m.type === 'combo' && state.multiplier >= m.val) m.done = true;
-                
-                if(m.done) {
-                    state.score += 200;
-                    renderMissions();
-                    showToast("Mission Complete! +200m");
-                }
-            });
-        }
-
-        function activateShield(active) {
-            state.hasShield = active;
-            shieldMesh.visible = active;
-            const el = document.getElementById('shield-indicator');
-            if(el) el.style.display = active ? 'block' : 'none';
-            if(active) {
-                Sound.powerup();
-                state.shieldTimer = 900; // 15 seconds at 60fps
-            }
-        }
-
-        function triggerFever(active) {
-            state.isFever = active;
-            const el = document.getElementById('fever-overlay');
-            if(active) {
-                el.classList.add('active');
-                state.feverTime = 300; // 5 seconds
-                showToast("🔥 FEVER MODE! INVINCIBLE! 🔥");
-            } else {
-                el.classList.remove('active');
-            }
-        }
-
-        function triggerDanger(active) {
-            const el = document.getElementById('danger-overlay');
-            if(active) el.classList.add('active'); else el.classList.remove('active');
-        }
-
         function reset() {
             state.score=0; state.runCoins=0; state.speed=CFG.speedStart; state.lane=0;
             state.isJumping=false; state.isSliding=false; state.vy=0;
-            state.combo=0; state.multiplier=1; state.comboTimer=0; state.biome=0;
-            state.shake = 0;
-            state.beastGap = 3; // Start close
-            state.isDying = false;
+            state.biome=0; state.shake = 0;
+            state.beastGap = 3; // Starts close
             scene.fog.color.setHex(CFG.colors.fog); scene.background.setHex(CFG.colors.sky);
-            activateShield(false);
-            triggerFever(false);
-            triggerDanger(true); // Start with danger on
             
             player.position.set(0,0,0); player.rotation.set(0,0,0);
             chunks.forEach(c=>scene.remove(c.mesh)); chunks.length=0;
@@ -817,12 +686,9 @@
             
             const sc = document.getElementById('score'); if(sc) sc.innerText="0m";
             const co = document.getElementById('coins'); if(co) co.innerText="0";
-            const mu = document.getElementById('multiplier'); if(mu) mu.innerText="x1";
-            generateMissions();
         }
 
         function startGame() {
-            // Critical Fix: Blur button to prevent Spacebar from triggering click again
             if(document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
             Sound.init(); 
@@ -881,7 +747,6 @@
         function offerRevive() {
             state.active = false;
             setScreen('revive');
-            // Sound.crash(); // handled in death logic
             let t = 5;
             const el = document.getElementById('revive-timer');
             if(el) el.innerText = t;
@@ -891,7 +756,7 @@
                 if(el) el.innerText = t;
                 if(t <= 0) {
                     clearInterval(int);
-                    endGame();
+                    endGame(); // AUTO-REDIRECT TO SCORES
                 }
             }, 1000);
         }
@@ -912,8 +777,6 @@
                 
                 state.active = true;
                 setScreen('game');
-                activateShield(true); 
-                state.beastGap = 10; // Reset beast pos
             } else {
                 showToast("Not enough gems!");
             }
@@ -925,7 +788,7 @@
             saveProgress();
             const gemEl = document.getElementById('total-gems');
             if(gemEl) gemEl.innerText = state.totalCoins;
-            setScreen('over');
+            setScreen('game-over');
             const stats = document.getElementById('final-stats');
             if(stats) stats.innerText = `${state.playerName} ran ${Math.floor(state.score)}m | Relics: ${state.runCoins}`;
         }
@@ -954,76 +817,15 @@
         function update() {
             if(!state.active) return;
 
-            // --- DEATH CINEMATIC ---
-            if(state.isDying) {
-                // Beast catches up rapidly
-                state.beastGap -= 0.4; 
-                
-                // Sync Beast Visuals
-                beast.position.z = player.position.z + state.beastGap;
-                
-                // Beast Run Animation
-                const beastCycle = state.animTime * 1.5; 
-                bLegFL.rotation.x = Math.sin(beastCycle)*0.6;
-                bLegFR.rotation.x = Math.sin(beastCycle+Math.PI)*0.6;
-                bLegBL.rotation.x = Math.sin(beastCycle+Math.PI)*0.6;
-                bLegBR.rotation.x = Math.sin(beastCycle)*0.6;
-                beast.position.y = 1.5 + Math.sin(beastCycle*2)*0.1;
-                state.animTime += 0.2;
-
-                // Camera tracks beast charge
-                camera.lookAt(beast.position);
-
-                // Trigger Game Over when beast reaches player
-                if(state.beastGap <= 1.5) {
-                    state.isDying = false;
-                    offerRevive(); 
-                }
-                return; // Skip normal game loop
-            }
-
-            // Shield Timer Logic
-            if(state.hasShield) {
-                state.shieldTimer--;
-                const el = document.getElementById('shield-indicator');
-                if(el) el.innerText = `🛡️ ${Math.ceil(state.shieldTimer/60)}s`; // Show remaining seconds
-                
-                if(state.shieldTimer <= 0) {
-                    activateShield(false);
-                    showToast("Shield Expired");
-                }
-            }
-
-            // Logic: Beast Retreats if running smooth
-            if(state.isFever) {
-                state.feverTime--;
-                if(state.feverTime <= 0) triggerFever(false);
-                state.speed = CFG.speedMax * 1.2;
-                state.beastGap = 20; // Beast cant catch you in fever
-            } else {
-                state.speed = Math.min(CFG.speedMax, state.speed + 0.00015);
-                // Slowly increase gap (Beast falls back)
-                state.beastGap = Math.min(25, state.beastGap + 0.03);
-            }
-
-            // Update Beast Visibility & Position
-            // If gap > 15, hide it. If gap < 6, show it and play growl
-            const beastVisible = state.beastGap < 15;
-            beast.visible = beastVisible;
-            if(beastVisible) {
-                beast.position.z = player.position.z + state.beastGap;
-                beast.position.x += (player.position.x - beast.position.x) * 0.1; // Smooth follow
-                triggerDanger(state.beastGap < 6); // Red overlay if close
-            } else {
-                triggerDanger(false);
-            }
+            // Speed Logic - Gradual and balanced
+            // starts at 0.35, adds small amt per frame. 
+            state.speed = Math.min(CFG.speedMax, state.speed + 0.0003);
 
             state.score += state.speed;
             player.position.z -= state.speed;
             
             updateRank();
             updateBiome();
-            checkMissions();
 
             // Lane
             const tx = state.lane * CFG.laneWidth;
@@ -1041,13 +843,20 @@
                 else { rig.hip.position.y=0.5; rig.torso.rotation.x=-Math.PI/2.5; }
             }
 
-            // Beast Anim
+            // Beast Logic (Visual Only - Retreats)
+            // Start close (3), slowly move to 20
+            if(state.beastGap < 20) state.beastGap += 0.05;
+
             const beastCycle = state.animTime * 0.8; 
             bLegFL.rotation.x = Math.sin(beastCycle)*0.6;
             bLegFR.rotation.x = Math.sin(beastCycle+Math.PI)*0.6;
             bLegBL.rotation.x = Math.sin(beastCycle+Math.PI)*0.6;
             bLegBR.rotation.x = Math.sin(beastCycle)*0.6;
+            // Bounce body
             beast.position.y = 1.5 + Math.sin(beastCycle*2)*0.1;
+            // Follow player
+            beast.position.z = player.position.z + state.beastGap; 
+            beast.position.x += (player.position.x - beast.position.x) * 0.1; 
 
             // Player Anim
             const runCycle = state.animTime * 0.9;
@@ -1076,17 +885,6 @@
             camera.lookAt(player.position.x * 0.3, 2, player.position.z - 10);
             pLight.position.set(player.position.x, 3, player.position.z+2);
 
-            // Combo Decay
-            if(state.combo > 0) {
-                state.comboTimer--;
-                if(state.comboTimer <= 0) {
-                    state.combo=0; state.multiplier=1;
-                    triggerFever(false);
-                    const mEl=document.getElementById('multiplier');
-                    if(mEl) { mEl.innerText="x1"; mEl.classList.remove('combo-active'); }
-                }
-            }
-
             // Generation
             const last = chunks[chunks.length-1];
             if(player.position.z < last.z + CFG.chunkSize + 10) {
@@ -1106,50 +904,22 @@
                 if(p.life<=0) { scene.remove(p.mesh); particles.splice(i,1); }
             }
 
-            // Collision Logic
+            // Collision Logic - INSTANT DEATH
             const pBox = new THREE.Box3().setFromObject(rig.hip); pBox.expandByScalar(-0.25);
             for(let i=obstacles.length-1; i>=0; i--) {
                 const o=obstacles[i];
                 if(o.z > player.position.z+10) { scene.remove(o.mesh); obstacles.splice(i,1); continue; }
                 
                 if(pBox.intersectsBox(new THREE.Box3().setFromObject(o.mesh))) {
-                    if(o.type === 'shield') {
-                        activateShield(true);
-                        scene.remove(o.mesh); obstacles.splice(i,1);
-                        spawnParticle(player.position.x, player.position.y, player.position.z, 0x00e5ff);
-                    } else {
-                        if(state.isFever) {
-                            Sound.crash(); 
-                            spawnParticle(o.x, 1, o.z, 0xff0000);
-                            scene.remove(o.mesh); obstacles.splice(i,1);
-                            state.shake = 1.0;
-                        } else if(state.hasShield) {
-                            activateShield(false);
-                            Sound.crash();
-                            spawnParticle(player.position.x, 1, player.position.z, 0x00e5ff);
-                            scene.remove(o.mesh); obstacles.splice(i,1);
-                            state.shake = 1.0;
-                            state.speed *= 0.5;
-                        } else {
-                            let safe=false;
-                            if(o.type==='jump' && state.isJumping && player.position.y>0.5) safe=true;
-                            if(o.type==='slide' && state.isSliding) safe=true;
-                            
-                            if(!safe) {
-                                // HARDCORE MODE: Start Death Sequence
-                                state.isDying = true;
-                                state.shake = 2.0;
-                                state.speed = 0; // Stop player
-                                Sound.crash(); 
-                                Sound.growl();
-                                
-                                // Force Beast Appearance & Alignment
-                                beast.visible = true;
-                                state.beastGap = 8; // Set to 8 to be instantly visible in front of camera
-                                beast.position.z = player.position.z + state.beastGap;
-                                beast.position.x = player.position.x; // Align X so it doesn't miss
-                            }
-                        }
+                    let safe=false;
+                    if(o.type==='jump' && state.isJumping && player.position.y>0.5) safe=true;
+                    if(o.type==='slide' && state.isSliding) safe=true;
+                    
+                    if(!safe) {
+                        // Instant Death
+                        state.shake = 2.0;
+                        Sound.crash();
+                        offerRevive();
                     }
                 }
             }
@@ -1164,18 +934,8 @@
 
                 if(d < 1.5) {
                     Sound.coin();
-                    state.combo++; state.comboTimer=120;
-                    if(state.combo>5) state.multiplier = Math.min(10, Math.floor(state.combo/5)+1);
-                    if(state.combo >= 10 && !state.isFever) triggerFever(true);
-
-                    const val = (1 + state.valueLevel) * state.multiplier; 
+                    const val = (1 + state.valueLevel); 
                     state.runCoins += val;
-                    state.score += 10 * state.multiplier;
-                    
-                    const mEl=document.getElementById('multiplier');
-                    if(mEl) { mEl.innerText="x"+state.multiplier; mEl.classList.add('combo-active'); }
-                    setTimeout(()=>{ if(mEl) mEl.classList.remove('combo-active') },100);
-
                     spawnParticle(g.mesh.position.x, g.mesh.position.y, g.mesh.position.z);
                     scene.remove(g.mesh); gems.splice(i,1);
                     const co = document.getElementById('coins'); if(co) co.innerText = state.runCoins;
@@ -1195,16 +955,15 @@
 
         // --- CONTROLS & EVENTS ---
         const actionJump = () => {
-            if(!state.isJumping && !state.isDying) { state.isJumping=true; state.vy=CFG.jumpForce; state.isSliding=false; Sound.jump(); }
+            if(!state.isJumping) { state.isJumping=true; state.vy=CFG.jumpForce; state.isSliding=false; Sound.jump(); }
         };
         const actionSlide = () => {
-            if(!state.isJumping && !state.isDying) { state.isSliding=true; state.slideTime=45; state.vy=-0.1; Sound.jump(); } 
+            if(!state.isJumping) { state.isSliding=true; state.slideTime=45; state.vy=-0.1; Sound.jump(); } 
         };
-        const actionLeft = () => { if(state.lane > -1 && !state.isDying) state.lane--; };
-        const actionRight = () => { if(state.lane < 1 && !state.isDying) state.lane++; };
+        const actionLeft = () => { if(state.lane > -1) state.lane--; };
+        const actionRight = () => { if(state.lane < 1) state.lane++; };
 
         window.addEventListener('keydown', e => {
-            // CRITICAL FIX: Prevent default to stop scrolling/button clicks
             if(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
                 e.preventDefault();
             }
@@ -1213,7 +972,7 @@
                 if(state.screen === 'start') startGame();
                 else if(state.screen === 'game') togglePause(); // Space toggles Pause/Play
                 else if(state.screen === 'pause') togglePause();
-                else if(state.screen === 'over') startGame();
+                else if(state.screen === 'game-over') startGame();
                 return;
             }
             if(state.screen === 'game') {
@@ -1235,7 +994,7 @@
             touchStartX = e.changedTouches[0].screenX;
             touchStartY = e.changedTouches[0].screenY;
             if(state.screen === 'start' && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') startGame();
-            if(state.screen === 'over' && e.target.tagName !== 'BUTTON') startGame();
+            if(state.screen === 'game-over' && e.target.tagName !== 'BUTTON') startGame();
         }, {passive: false});
 
         containerEl.addEventListener('touchend', e => {
@@ -1269,7 +1028,6 @@
             const el = document.getElementById(id);
             if(el) {
                 el.onclick = function(e) {
-                    // Blur button on click so Spacebar doesn't re-trigger it
                     if(e && e.target) e.target.blur();
                     action();
                 };
